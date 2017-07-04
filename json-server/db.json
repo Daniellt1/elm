@@ -1,0 +1,22 @@
+{
+  "providersUrls": [
+    { "id": 1, "name": "provider-1", "url": "http://localhost:3000/providers/1" },
+    { "id": 2, "name": "provider-2", "url": "http://localhost:3000/providers/2" }
+  ],
+  "providers": [
+    {
+      "id": 1,
+      "name": "provider-1",
+      "hotels": [
+        { "name": "Cool hotel" }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "provider-1",
+      "hotels": [
+        { "name": "Cool hotel2" }
+      ]
+    }
+  ]
+}

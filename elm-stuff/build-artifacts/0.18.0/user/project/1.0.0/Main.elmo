@@ -1,0 +1,213 @@
+var _user$project$Main$mergeHotels = F2(
+	function (old, $new) {
+		return A2(_elm_lang$core$List$append, old, $new);
+	});
+var _user$project$Main$updateHotels = F2(
+	function (old, $new) {
+		var mappedOld = function () {
+			var _p0 = old;
+			if (_p0.ctor === 'Loading') {
+				return _krisajenkins$remotedata$RemoteData$succeed(
+					{ctor: '[]'});
+			} else {
+				return old;
+			}
+		}();
+		return A3(_krisajenkins$remotedata$RemoteData$map2, _user$project$Main$mergeHotels, mappedOld, $new);
+	});
+var _user$project$Main$hotelsFromProviderDataResponse = function (providerDataResponse) {
+	var _p1 = providerDataResponse;
+	switch (_p1.ctor) {
+		case 'Success':
+			return _krisajenkins$remotedata$RemoteData$succeed(_p1._0.hotels);
+		case 'Failure':
+			return _krisajenkins$remotedata$RemoteData$Failure(_p1._0);
+		default:
+			return _krisajenkins$remotedata$RemoteData$succeed(
+				{ctor: '[]'});
+	}
+};
+var _user$project$Main$createProviderUrl = F2(
+	function (name, url) {
+		return {ctor: '_Tuple2', _0: name, _1: url};
+	});
+var _user$project$Main$decodeProviderUrl = A3(
+	_elm_lang$core$Json_Decode$map2,
+	_user$project$Main$createProviderUrl,
+	A2(_elm_lang$core$Json_Decode$field, 'name', _elm_lang$core$Json_Decode$string),
+	A2(_elm_lang$core$Json_Decode$field, 'url', _elm_lang$core$Json_Decode$string));
+var _user$project$Main$decodeProvidersUrls = _elm_lang$core$Json_Decode$list(_user$project$Main$decodeProviderUrl);
+var _user$project$Main$subscriptions = function (model) {
+	return _elm_lang$core$Platform_Sub$none;
+};
+var _user$project$Main$viewHotel = function (hotel) {
+	return A2(
+		_elm_lang$html$Html$div,
+		{ctor: '[]'},
+		{
+			ctor: '::',
+			_0: _elm_lang$html$Html$text(
+				A2(_elm_lang$core$Basics_ops['++'], 'Hotel name: ', hotel.name)),
+			_1: {ctor: '[]'}
+		});
+};
+var _user$project$Main$viewHotels = function (hotels) {
+	var _p2 = hotels;
+	switch (_p2.ctor) {
+		case 'NotAsked':
+			return _elm_lang$html$Html$text('Initialising.');
+		case 'Loading':
+			return _elm_lang$html$Html$text('Loading.');
+		case 'Failure':
+			return _elm_lang$html$Html$text(
+				A2(
+					_elm_lang$core$Basics_ops['++'],
+					'Error: ',
+					_elm_lang$core$Basics$toString(_p2._0)));
+		default:
+			return A2(
+				_elm_lang$html$Html$div,
+				{ctor: '[]'},
+				A2(_elm_lang$core$List$map, _user$project$Main$viewHotel, _p2._0));
+	}
+};
+var _user$project$Main$view = function (model) {
+	return A2(
+		_elm_lang$html$Html$div,
+		{ctor: '[]'},
+		{
+			ctor: '::',
+			_0: A2(
+				_elm_lang$html$Html$div,
+				{ctor: '[]'},
+				{
+					ctor: '::',
+					_0: _elm_lang$html$Html$text('Providers: '),
+					_1: {ctor: '[]'}
+				}),
+			_1: {
+				ctor: '::',
+				_0: A2(
+					_elm_lang$html$Html$div,
+					{ctor: '[]'},
+					{
+						ctor: '::',
+						_0: _user$project$Main$viewHotels(model.hotels),
+						_1: {ctor: '[]'}
+					}),
+				_1: {ctor: '[]'}
+			}
+		});
+};
+var _user$project$Main$Model = F2(
+	function (a, b) {
+		return {providers: a, hotels: b};
+	});
+var _user$project$Main$ProviderData = function (a) {
+	return {hotels: a};
+};
+var _user$project$Main$Provider = F3(
+	function (a, b, c) {
+		return {name: a, url: b, data: c};
+	});
+var _user$project$Main$createProviderTuple = function (_p3) {
+	var _p4 = _p3;
+	var _p5 = _p4._0;
+	return {
+		ctor: '_Tuple2',
+		_0: _p5,
+		_1: A3(_user$project$Main$Provider, _p5, _p4._1, _krisajenkins$remotedata$RemoteData$Loading)
+	};
+};
+var _user$project$Main$Hotel = function (a) {
+	return {name: a};
+};
+var _user$project$Main$decodeHotel = A2(
+	_elm_lang$core$Json_Decode$map,
+	_user$project$Main$Hotel,
+	A2(_elm_lang$core$Json_Decode$field, 'name', _elm_lang$core$Json_Decode$string));
+var _user$project$Main$decodeHotels = _elm_lang$core$Json_Decode$list(_user$project$Main$decodeHotel);
+var _user$project$Main$decodeProviderData = A2(
+	_elm_lang$core$Json_Decode$map,
+	_user$project$Main$ProviderData,
+	A2(_elm_lang$core$Json_Decode$field, 'hotels', _user$project$Main$decodeHotels));
+var _user$project$Main$ProviderDataFetched = F2(
+	function (a, b) {
+		return {ctor: 'ProviderDataFetched', _0: a, _1: b};
+	});
+var _user$project$Main$fetchProviderData = function (url) {
+	return A2(
+		_elm_lang$core$Platform_Cmd$map,
+		_user$project$Main$ProviderDataFetched(url),
+		_krisajenkins$remotedata$RemoteData$sendRequest(
+			A2(_elm_lang$http$Http$get, url, _user$project$Main$decodeProviderData)));
+};
+var _user$project$Main$update = F2(
+	function (msg, model) {
+		var _p6 = msg;
+		if (_p6.ctor === 'ProvidersUrlsFetched') {
+			var _p9 = _p6._0;
+			var providers = function () {
+				var _p7 = _p9;
+				if (_p7.ctor === 'Success') {
+					return _elm_lang$core$Maybe$Just(
+						_elm_lang$core$Dict$fromList(
+							A2(_elm_lang$core$List$map, _user$project$Main$createProviderTuple, _p7._0)));
+				} else {
+					return _elm_lang$core$Maybe$Nothing;
+				}
+			}();
+			var cmds = function () {
+				var _p8 = _p9;
+				if (_p8.ctor === 'Success') {
+					return A2(
+						_elm_lang$core$List$map,
+						_user$project$Main$fetchProviderData,
+						A2(
+							_elm_lang$core$List$map,
+							function (p) {
+								return _elm_lang$core$Tuple$second(p);
+							},
+							_p8._0));
+				} else {
+					return {ctor: '[]'};
+				}
+			}();
+			return A2(
+				_elm_lang$core$Platform_Cmd_ops['!'],
+				_elm_lang$core$Native_Utils.update(
+					model,
+					{providers: providers}),
+				cmds);
+		} else {
+			return A2(
+				_elm_lang$core$Platform_Cmd_ops['!'],
+				_elm_lang$core$Native_Utils.update(
+					model,
+					{
+						hotels: A2(
+							_user$project$Main$updateHotels,
+							model.hotels,
+							_user$project$Main$hotelsFromProviderDataResponse(_p6._1))
+					}),
+				{ctor: '[]'});
+		}
+	});
+var _user$project$Main$ProvidersUrlsFetched = function (a) {
+	return {ctor: 'ProvidersUrlsFetched', _0: a};
+};
+var _user$project$Main$fetchProvidersUrls = A2(
+	_elm_lang$core$Platform_Cmd$map,
+	_user$project$Main$ProvidersUrlsFetched,
+	_krisajenkins$remotedata$RemoteData$sendRequest(
+		A2(_elm_lang$http$Http$get, 'http://localhost:3000/providersUrls', _user$project$Main$decodeProvidersUrls)));
+var _user$project$Main$init = {
+	ctor: '_Tuple2',
+	_0: A2(
+		_user$project$Main$Model,
+		_elm_lang$core$Maybe$Just(_elm_lang$core$Dict$empty),
+		_krisajenkins$remotedata$RemoteData$Loading),
+	_1: _user$project$Main$fetchProvidersUrls
+};
+var _user$project$Main$main = _elm_lang$html$Html$program(
+	{init: _user$project$Main$init, update: _user$project$Main$update, subscriptions: _user$project$Main$subscriptions, view: _user$project$Main$view})();
