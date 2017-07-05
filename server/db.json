@@ -1,0 +1,40 @@
+{
+    "providersUrls": [{
+            "id": 1,
+            "name": "provider-1",
+            "url": "http://localhost:8080/providers/1"
+        },
+        {
+            "id": 2,
+            "name": "provider-2",
+            "url": "http://localhost:8080/providers/2"
+        }
+    ],
+    "providers": [{
+            "id": 1,
+            "hotels": [{
+                "accomodationId": "1",
+                "accomodationName": "Cool hotel"
+            }],
+            "deals": [
+                {
+                    "hotel": "2",
+                    "offerId": "offer-id-3222221241412"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "hotels": [{
+                "accomodationId": "2",
+                "accomodationName": "Cool hotel2"
+            }],
+            "deals": [
+                {
+                    "hotel": "2",
+                    "offerId": "offer-id-32131241412"
+                }
+            ]
+        }
+    ]
+}
