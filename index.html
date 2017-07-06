@@ -14308,16 +14308,16 @@ var _user$project$Main$view = function (model) {
 					{ctor: '[]'},
 					{
 						ctor: '::',
-						_0: _user$project$Main$viewPages(model.pages),
+						_0: _user$project$Main$viewPages(model.hotelsPages),
 						_1: {ctor: '[]'}
 					}),
 				_1: {ctor: '[]'}
 			}
 		});
 };
-var _user$project$Main$Model = F3(
-	function (a, b, c) {
-		return {currentPage: a, pages: b, providers: c};
+var _user$project$Main$Model = F4(
+	function (a, b, c, d) {
+		return {currentPage: a, hotels: b, hotelsPages: c, providers: d};
 	});
 var _user$project$Main$ProviderUrl = F2(
 	function (a, b) {
@@ -14479,13 +14479,13 @@ var _user$project$Main$update = F2(
 					model,
 					{
 						providers: providers,
-						pages: A3(
+						hotelsPages: A3(
 							_elm_lang$core$Dict$update,
 							model.currentPage,
 							function (_p22) {
 								return _elm_lang$core$Maybe$Just(currentPage);
 							},
-							model.pages)
+							model.hotelsPages)
 					}),
 				cmds);
 		} else {
@@ -14501,11 +14501,11 @@ var _user$project$Main$update = F2(
 							_p24,
 							A3(_user$project$Main$Provider, _p24, _p18._1, _p25),
 							model.providers),
-						pages: A3(
+						hotelsPages: A3(
 							_user$project$Main$updatePage,
 							model.currentPage,
 							_user$project$Main$pageFromProviderDataResponse(_p25),
-							model.pages)
+							model.hotelsPages)
 					}),
 				{ctor: '[]'});
 		}
@@ -14520,9 +14520,10 @@ var _user$project$Main$fetchProvidersUrls = A2(
 		A2(_elm_lang$http$Http$get, 'http://localhost:8080/providersUrls', _user$project$Main$decodeProvidersUrls)));
 var _user$project$Main$init = {
 	ctor: '_Tuple2',
-	_0: A3(
+	_0: A4(
 		_user$project$Main$Model,
 		1,
+		_elm_lang$core$Dict$empty,
 		A2(_elm_lang$core$Dict$singleton, 1, _krisajenkins$remotedata$RemoteData$NotAsked),
 		_elm_lang$core$Maybe$Just(_elm_lang$core$Dict$empty)),
 	_1: _user$project$Main$fetchProvidersUrls

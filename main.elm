@@ -14,7 +14,8 @@ import RemoteData
 
 type alias Model =
     { currentPage : Int
-    , pages : HotelsPages
+    , hotels : Hotels
+    , hotelsPages : HotelsPages
     , providers : Maybe (Dict.Dict String Provider)
     }
 
@@ -44,10 +45,6 @@ type alias Provider =
     , url : String
     , data : RemoteData.WebData ProviderData
     }
-
-
-type alias HotelsState =
-    RemoteData.WebData Hotels
 
 
 type alias Hotels =
@@ -89,7 +86,7 @@ type alias DealId =
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model 1 (Dict.singleton 1 RemoteData.NotAsked) (Just Dict.empty), fetchProvidersUrls )
+    ( Model 1 Dict.empty (Dict.singleton 1 RemoteData.NotAsked) (Just Dict.empty), fetchProvidersUrls )
 
 
 
@@ -103,7 +100,7 @@ view model =
             [ text "Providers: "
             , viewStatusBar model.providers
             ]
-        , div [] [ viewPages model.pages ]
+        , div [] [ viewPages model.hotelsPages ]
         ]
 
 
@@ -224,14 +221,15 @@ update msg model =
             in
             { model
                 | providers = providers
-                , pages = Dict.update model.currentPage (\_ -> Just currentPage) model.pages
+                , hotelsPages = Dict.update model.currentPage (\_ -> Just currentPage) model.hotelsPages
             }
                 ! cmds
 
         ProviderDataFetched name url response ->
             { model
-                | providers = updateProvider name (Provider name url response) model.providers
-                , pages = updatePage model.currentPage (pageFromProviderDataResponse response) model.pages
+                | hotels = Dict.union
+                , hotelsPages = updatePage model.currentPage (pageFromProviderDataResponse response) model.hotelsPages
+                , providers = updateProvider name (Provider name url response) model.providers
             }
                 ! []
 
@@ -285,6 +283,16 @@ pageFromProviderDataResponse providerDataResponse =
 
         _ ->
             RemoteData.succeed []
+
+
+hotelsFromProviderDataResponse : RemoteData.WebData ProviderData -> Hotels
+hotelsFromProviderDataResponse providerDataResponse =
+    case providerDataResponse of
+        RemoteData.Success data ->
+            data.hotels
+
+        _ ->
+            Dict.empty
 
 
 updateHotels : RemoteData.WebData (List Hotel) -> RemoteData.WebData (List Hotel) -> RemoteData.WebData (List Hotel)
