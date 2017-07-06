@@ -5,6 +5,7 @@ import Html exposing (..)
 import Http
 import Json.Decode as Decode
 import Json.Decode.Pipeline as Pipeline
+import List.Extra
 import RemoteData
 
 
@@ -12,9 +13,18 @@ import RemoteData
 
 
 type alias Model =
-    { providers : Maybe (Dict.Dict String Provider)
-    , hotels : RemoteData.WebData (List Hotel)
+    { currentPage : Int
+    , pages : HotelsPages
+    , providers : Maybe (Dict.Dict String Provider)
     }
+
+
+type alias HotelsPages =
+    Dict.Dict Int HotelPage
+
+
+type alias HotelPage =
+    RemoteData.WebData (List HotelId)
 
 
 type alias ProviderUrl =
@@ -24,7 +34,8 @@ type alias ProviderUrl =
 
 
 type alias ProviderData =
-    { hotels : List Hotel
+    { hotels : Hotels
+    , deals : Deals
     }
 
 
@@ -35,11 +46,35 @@ type alias Provider =
     }
 
 
+type alias HotelsState =
+    RemoteData.WebData Hotels
+
+
+type alias Hotels =
+    Dict.Dict HotelId Hotel
+
+
 type alias Hotel =
-    { accomodationId : String
+    { accomodationId : HotelId
     , accomodationName : String
-    , deals : List Deal
+    , deals : Deals
     }
+
+
+type alias HotelId =
+    String
+
+
+type alias DealsPages =
+    Dict.Dict Int DealPage
+
+
+type alias DealPage =
+    List DealId
+
+
+type alias Deals =
+    Dict.Dict String Deal
 
 
 type alias Deal =
@@ -48,9 +83,13 @@ type alias Deal =
     }
 
 
+type alias DealId =
+    String
+
+
 init : ( Model, Cmd Msg )
 init =
-    ( Model (Just Dict.empty) RemoteData.Loading, fetchProvidersUrls )
+    ( Model 1 (Dict.singleton 1 RemoteData.NotAsked) (Just Dict.empty), fetchProvidersUrls )
 
 
 
@@ -64,7 +103,7 @@ view model =
             [ text "Providers: "
             , viewStatusBar model.providers
             ]
-        , div [] [ viewHotels model.hotels ]
+        , div [] [ viewPages model.pages ]
         ]
 
 
@@ -102,9 +141,16 @@ viewStatusBar providers =
             text ""
 
 
-viewHotels : RemoteData.WebData (List Hotel) -> Html Msg
-viewHotels hotels =
-    case hotels of
+viewPages : HotelsPages -> Html Msg
+viewPages pages =
+    Dict.values pages
+        |> List.map viewPage
+        |> div []
+
+
+viewPage : HotelPage -> Html Msg
+viewPage page =
+    case page of
         RemoteData.NotAsked ->
             text "Initialising."
 
@@ -115,7 +161,7 @@ viewHotels hotels =
             text ("Error: " ++ toString err)
 
         RemoteData.Success hotelsItems ->
-            div [] (List.map viewHotel hotelsItems)
+            text (toString page)
 
 
 viewHotel : Hotel -> Html Msg
@@ -167,8 +213,8 @@ update msg model =
                         _ ->
                             Nothing
 
-                hotels : RemoteData.WebData (List Hotel)
-                hotels =
+                currentPage : HotelPage
+                currentPage =
                     case response of
                         RemoteData.Failure e ->
                             RemoteData.Failure e
@@ -178,16 +224,39 @@ update msg model =
             in
             { model
                 | providers = providers
-                , hotels = hotels
+                , pages = Dict.update model.currentPage (\_ -> Just currentPage) model.pages
             }
                 ! cmds
 
         ProviderDataFetched name url response ->
             { model
-                | hotels = updateHotels model.hotels (hotelsFromProviderDataResponse response)
-                , providers = updateProvider name (Provider name url response) model.providers
+                | providers = updateProvider name (Provider name url response) model.providers
+                , pages = updatePage model.currentPage (pageFromProviderDataResponse response) model.pages
             }
                 ! []
+
+
+updatePage : Int -> HotelPage -> HotelsPages -> HotelsPages
+updatePage index page pages =
+    let
+        mergePages : HotelPage -> HotelPage -> HotelPage
+        mergePages old new =
+            RemoteData.map2 (\old new -> List.append old new |> List.Extra.unique) old new
+
+        updatePageValue newPage maybeOldPage =
+            case maybeOldPage of
+                Just oldPage ->
+                    case oldPage of
+                        RemoteData.Loading ->
+                            Just (mergePages (RemoteData.succeed []) newPage)
+
+                        _ ->
+                            Just (mergePages oldPage newPage)
+
+                Nothing ->
+                    Just newPage
+    in
+    Dict.update index (updatePageValue page) pages
 
 
 updateProvider : String -> Provider -> Maybe (Dict.Dict String Provider) -> Maybe (Dict.Dict String Provider)
@@ -205,11 +274,11 @@ nameProviderTuple { name, url } =
     ( name, Provider name url RemoteData.Loading )
 
 
-hotelsFromProviderDataResponse : RemoteData.WebData ProviderData -> RemoteData.WebData (List Hotel)
-hotelsFromProviderDataResponse providerDataResponse =
+pageFromProviderDataResponse : RemoteData.WebData ProviderData -> HotelPage
+pageFromProviderDataResponse providerDataResponse =
     case providerDataResponse of
         RemoteData.Success data ->
-            RemoteData.succeed data.hotels
+            RemoteData.succeed (Dict.keys data.hotels)
 
         RemoteData.Failure err ->
             RemoteData.Failure err
@@ -265,16 +334,25 @@ fetchProviderData { name, url } =
 
 decodeProviderData : Decode.Decoder ProviderData
 decodeProviderData =
-    Decode.map ProviderData <|
-        (Decode.field "deals" decodeDeals
-            |> Decode.andThen
-                (\deals ->
-                    Decode.field "hotels" (decodeHotels deals)
-                )
-        )
+    let
+        dealsDecoder : Decode.Decoder Deals
+        dealsDecoder =
+            Decode.field "deals" decodeDeals
+
+        hotelsDecoder : Decode.Decoder Hotels
+        hotelsDecoder =
+            dealsDecoder
+                |> Decode.andThen
+                    (\deals ->
+                        Decode.field "hotels" (decodeHotels deals)
+                    )
+    in
+    Pipeline.decode ProviderData
+        |> Pipeline.custom hotelsDecoder
+        |> Pipeline.custom dealsDecoder
 
 
-decodeHotel : List Deal -> Decode.Decoder Hotel
+decodeHotel : Deals -> Decode.Decoder Hotel
 decodeHotel deals =
     Pipeline.decode Hotel
         |> Pipeline.required "accomodationId" Decode.string
@@ -282,14 +360,24 @@ decodeHotel deals =
         |> Pipeline.hardcoded deals
 
 
-decodeHotels : List Deal -> Decode.Decoder (List Hotel)
+decodeIdHotelTuple : Deals -> Decode.Decoder ( HotelId, Hotel )
+decodeIdHotelTuple deals =
+    Decode.map (\hotel -> ( hotel.accomodationId, hotel )) (decodeHotel deals)
+
+
+decodeHotels : Deals -> Decode.Decoder (Dict.Dict String Hotel)
 decodeHotels deals =
-    Decode.list (decodeHotel deals)
+    Decode.map (\l -> Dict.fromList l) (Decode.list (decodeIdHotelTuple deals))
 
 
-decodeDeals : Decode.Decoder (List Deal)
+decodeDeals : Decode.Decoder Deals
 decodeDeals =
-    Decode.list decodeDeal
+    Decode.map (\l -> Dict.fromList l) (Decode.list decodeIdDealTuple)
+
+
+decodeIdDealTuple : Decode.Decoder ( DealId, Deal )
+decodeIdDealTuple =
+    Decode.map (\deal -> ( deal.offerId, deal )) decodeDeal
 
 
 decodeDeal : Decode.Decoder Deal
