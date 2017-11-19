@@ -8,42 +8,46 @@ import List.Extra
 import RemoteData
 import Types exposing (..)
 
--- if Loading -- Reload page
--- if Success with size -- do Nothing
--- if Success without items -- No results
 
-updatePage : Int -> HotelPage -> HotelsPages -> HotelsPages
-updatePage index page pages =
+{-
+   mergeFirstPage:
+      Because of the multiple providers - first page merging proccess has
+      specific implementation:
+      1. If old page is loading:
+          1.1 If new page is succeeded - return new one.
+          1.2 If new page is not succeeded - return old one.
+      2 If old page is succeeded:
+          1.1 If new page is succeeded - return merged old and new.
+          1.2 If new page is not succeeded - return old one.
+
+      That logic guarantees than in the view layer - page is always in loading or
+      succeeded state. All occured errror going to be handled by update function
+      as soon as all providers loaded.
+-}
+
+
+mergeFirstPage : HotelPage -> HotelPage -> HotelPage
+mergeFirstPage oldPage newPage =
     let
         mergePages : HotelPage -> HotelPage -> HotelPage
         mergePages old new =
             RemoteData.map2 (\old new -> List.append old new |> List.Extra.unique) old new
-
-        updatePageValue newPage maybeOldPage =
-            case maybeOldPage of
-                Just oldPage ->
-                    case oldPage of
-                        RemoteData.Loading ->
-                            -- if newPage failed - leave Loading
-                            -- if newPage Success - leave Success
-                            
-
-                        RemoteData.Success _ ->
-                            -- if newPage failed - leave Success
-                            -- if newPage Success - merge
-                            if RemoteData.isSuccess newPage then
-                                Just (mergePages oldPage newPage)
-                            else
-                                Just oldPage
-
-                        _ ->
-                            -- TODO: merge errors for failure
-                            Just newPage
-
-                Nothing ->
-                    Just newPage
     in
-    Dict.update index (updatePageValue page) pages
+        case oldPage of
+            RemoteData.Loading ->
+                if RemoteData.isSuccess newPage then
+                    newPage
+                else
+                    oldPage
+
+            RemoteData.Success _ ->
+                if RemoteData.isSuccess newPage then
+                    mergePages oldPage newPage
+                else
+                    oldPage
+
+            _ ->
+                newPage
 
 
 updateProvider : String -> Provider -> Maybe (Dict.Dict String Provider) -> Maybe (Dict.Dict String Provider)
@@ -61,8 +65,8 @@ nameProviderTuple ( name, url ) =
     ( name, Provider name url RemoteData.Loading )
 
 
-pageFromProviderDataResponse : RemoteData.WebData ProviderData -> HotelPage
-pageFromProviderDataResponse providerDataResponse =
+hotelPageFromProviderDataResponse : RemoteData.WebData ProviderData -> HotelPage
+hotelPageFromProviderDataResponse providerDataResponse =
     case providerDataResponse of
         RemoteData.Success data ->
             RemoteData.succeed (Dict.keys data.hotels)
@@ -105,7 +109,7 @@ updateHotels old new =
                 _ ->
                     old
     in
-    RemoteData.map2 mergeHotels mappedOld new
+        RemoteData.map2 mergeHotels mappedOld new
 
 
 mergeHotels : List Hotel -> List Hotel -> List Hotel
@@ -113,16 +117,20 @@ mergeHotels old new =
     List.append old new
 
 
-fetchProvidersUrls : Cmd Msg
-fetchProvidersUrls =
-    Http.get "http://localhost:3000/json/holiday-search/broker/main/offers?sourceID=15&itemsPerPage=20&dealsPerHotel=4&minDate=2017-02-18&searchType=sun&maxPrice=100&sgRegion=38366&page=1&maxDate=2017-02-24&minPrice=10&rating=4%2C2%2C3" decodeProvidersUrls
+
+-- REST starts
+
+
+fetchInitData : Cmd Msg
+fetchInitData =
+    Http.get "http://localhost:3000/json/holiday-search/broker/main/offers?sourceID=15&itemsPerPage=20&dealsPerHotel=4&minDate=2017-02-18&searchType=sun&maxPrice=100&sgRegion=38366&page=1&maxDate=2017-02-24&minPrice=10&rating=4%2C2%2C3" decodeInitData
         |> RemoteData.sendRequest
-        |> Cmd.map ProvidersUrlsFetched
+        |> Cmd.map InitDataFetched
 
 
-decodeProvidersUrls : Decode.Decoder ProvidersUrls
-decodeProvidersUrls =
-    Decode.field "urls" <| Decode.keyValuePairs Decode.string
+fetchProvidersData : ProvidersUrls -> List (Cmd Msg)
+fetchProvidersData providersUrls =
+    List.map fetchProviderData providersUrls
 
 
 fetchProviderData : ProviderUrl -> Cmd Msg
@@ -133,24 +141,93 @@ fetchProviderData ( name, url ) =
         |> Cmd.map (ProviderDataFetched name url)
 
 
+
+-- REST ends
+-- Decoders start
+-- Init data decoder
+
+
+decodeInitData : Decode.Decoder InitData
+decodeInitData =
+    Pipeline.decode InitData
+        |> Pipeline.custom (Decode.maybe decodeProvidersUrls)
+        |> Pipeline.custom (Decode.maybe decodeOffers)
+
+
+
+-- Provider url decoder
+
+
+decodeProvidersUrls : Decode.Decoder ProvidersUrls
+decodeProvidersUrls =
+    Decode.keyValuePairs Decode.string
+        |> Decode.field "urls"
+
+
+
+-- Offer decoder
+
+
+decodeOffers : Decode.Decoder Offers
+decodeOffers =
+    (Pipeline.decode Offers
+        |> Pipeline.custom decodeHotels
+        |> Pipeline.custom decodeDeals
+    )
+        |> Decode.field "offers"
+
+
+
+-- HotelPage helpers
+
+
+overideHotelPage : Int -> HotelPage -> HotelsPages -> HotelsPages
+overideHotelPage index page pages =
+    Dict.update index (\_ -> Just page) pages
+
+
+hotelPageFromHotels : Hotels -> HotelPage
+hotelPageFromHotels hotels =
+    RemoteData.Success (Dict.keys hotels)
+
+
+
+-- Provider data decoder
+
+
 decodeProviderData : Decode.Decoder ProviderData
 decodeProviderData =
-    let
-        dealsDecoder : Decode.Decoder Deals
-        dealsDecoder =
-            Decode.field "deals" decodeDeals
-
-        hotelsDecoder : Decode.Decoder Hotels
-        hotelsDecoder =
-            dealsDecoder
-                |> Decode.andThen
-                    (\deals ->
-                        Decode.field "hotels" (decodeHotels deals)
-                    )
-    in
     Pipeline.decode ProviderData
-        |> Pipeline.custom hotelsDecoder
-        |> Pipeline.custom dealsDecoder
+        |> Pipeline.custom decodeHotels
+        |> Pipeline.custom decodeDeals
+
+
+mapProvidersUrlsToProviders : ProvidersUrls -> Providers
+mapProvidersUrlsToProviders urls =
+    List.map nameProviderTuple urls
+        |> Dict.fromList
+        |> Just
+
+
+
+-- Hotels related decoders
+
+
+decodeHotels : Decode.Decoder Hotels
+decodeHotels =
+    -- Decode deals first
+    decodeDeals
+        |> Decode.andThen
+            (\deals ->
+                -- Decode hotels as tuple ( HoteId, Hotel ) and transform to Dict
+                Decode.map (\l -> Dict.fromList l) (Decode.list (decodeIdHotelTuple deals))
+                    |> Decode.field "hotels"
+            )
+
+
+decodeIdHotelTuple : Deals -> Decode.Decoder ( HotelId, Hotel )
+decodeIdHotelTuple deals =
+    Decode.map (\hotel -> ( hotel.accommodationId, hotel )) (decodeHotel deals)
 
 
 decodeHotel : Deals -> Decode.Decoder Hotel
@@ -160,33 +237,35 @@ decodeHotel deals =
         accommodationIdDecoder =
             Decode.field "accommodationId" Decode.string
 
-        dealsDecoder : Decode.Decoder Deals
+        dealsDecoder : Decode.Decoder DealPage
         dealsDecoder =
             accommodationIdDecoder
                 |> Decode.andThen
                     (\accommodationId ->
-                        Decode.succeed (Dict.filter (\_ deal -> deal.hotel == accommodationId) deals)
+                        Dict.filter (\_ deal -> deal.hotel == accommodationId) deals
+                            |> Dict.keys
+                            |> Decode.succeed
                     )
+
+        dealsPagesDecoder : Decode.Decoder DealsPages
+        dealsPagesDecoder =
+            Decode.map (\deals -> Dict.singleton 1 deals) dealsDecoder
     in
-    Pipeline.decode Hotel
-        |> Pipeline.custom accommodationIdDecoder
-        |> Pipeline.required "accommodationName" Decode.string
-        |> Pipeline.custom dealsDecoder
+        Pipeline.decode Hotel
+            |> Pipeline.custom accommodationIdDecoder
+            |> Pipeline.required "accommodationName" Decode.string
+            |> Pipeline.custom dealsPagesDecoder
 
 
-decodeIdHotelTuple : Deals -> Decode.Decoder ( HotelId, Hotel )
-decodeIdHotelTuple deals =
-    Decode.map (\hotel -> ( hotel.accommodationId, hotel )) (decodeHotel deals)
 
-
-decodeHotels : Deals -> Decode.Decoder (Dict.Dict String Hotel)
-decodeHotels deals =
-    Decode.map (\l -> Dict.fromList l) (Decode.list (decodeIdHotelTuple deals))
+-- Deals related decoders
 
 
 decodeDeals : Decode.Decoder Deals
 decodeDeals =
-    Decode.map (\l -> Dict.fromList l) (Decode.list decodeIdDealTuple)
+    -- Decode deals as tuple ( DealId, Deal ) and transform to Dict
+    Decode.map (\l -> Dict.fromList l) (Decode.list (decodeIdDealTuple))
+        |> Decode.field "deals"
 
 
 decodeIdDealTuple : Decode.Decoder ( DealId, Deal )
@@ -199,3 +278,7 @@ decodeDeal =
     Pipeline.decode Deal
         |> Pipeline.required "hotel" Decode.string
         |> Pipeline.required "offerId" Decode.string
+
+
+
+-- Decoders end

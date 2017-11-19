@@ -13,7 +13,7 @@ view model =
             [ text "Providers: "
             , viewStatusBar model.providers
             ]
-        , div [] [ viewPages model.hotels model.hotelsPages ]
+        , div [] [ viewHotelsPages model.hotels model.hotelsPages ]
         ]
 
 
@@ -27,59 +27,59 @@ viewStatusBar providers =
         filterFetchedProviders : String -> Provider -> Bool
         filterFetchedProviders _ provider =
             case provider.data of
-                RemoteData.Success _ ->
-                    True
+                RemoteData.Loading ->
+                    False
 
                 _ ->
-                    False
+                    True
 
         fetchedProvidersSize : Dict.Dict String Provider -> Int
         fetchedProvidersSize providers =
             Dict.size <|
                 Dict.filter filterFetchedProviders providers
     in
-    case providers of
-        Just providers_ ->
-            if providersSize providers_ == 0 then
-                text "Loading"
-            else if providersSize providers_ == fetchedProvidersSize providers_ then
-                text "Loaded"
-            else
-                text (toString (fetchedProvidersSize providers_) ++ " of " ++ toString (providersSize providers_))
+        case providers of
+            Just providers_ ->
+                if providersSize providers_ == 0 then
+                    text "Loading"
+                else if providersSize providers_ == fetchedProvidersSize providers_ then
+                    text "Loaded"
+                else
+                    text (toString (fetchedProvidersSize providers_) ++ " of " ++ toString (providersSize providers_))
 
-        Nothing ->
-            text ""
+            Nothing ->
+                text ""
 
 
-viewPages : Hotels -> HotelsPages -> Html Msg
-viewPages hotels pages =
+viewHotelsPages : Hotels -> HotelsPages -> Html Msg
+viewHotelsPages hotels pages =
     Dict.values pages
-        |> List.map (viewPage hotels)
+        |> List.map (viewHotelPage hotels)
         |> div []
 
 
-viewPage : Hotels -> HotelPage -> Html Msg
-viewPage hotels page =
+viewHotelPage : Hotels -> HotelPage -> Html Msg
+viewHotelPage hotels page =
     let
         getHotelById : HotelId -> Maybe Hotel
         getHotelById id_ =
             Dict.get id_ hotels
     in
-    case page of
-        RemoteData.NotAsked ->
-            text "Initialising."
+        case page of
+            RemoteData.NotAsked ->
+                text "Initialising."
 
-        RemoteData.Loading ->
-            text "Loading."
+            RemoteData.Loading ->
+                text "Loading."
 
-        RemoteData.Failure err ->
-            text ("Error: " ++ toString err)
+            RemoteData.Failure err ->
+                text ("Error: " ++ toString err)
 
-        RemoteData.Success hotelsIds ->
-            div []
-                (List.map getHotelById hotelsIds
-                    |> List.map viewHotel
-                )
+            RemoteData.Success hotelsIds ->
+                div []
+                    (List.map getHotelById hotelsIds
+                        |> List.map viewHotel
+                    )
 
 
 viewHotel : Maybe Hotel -> Html Msg
@@ -91,3 +91,16 @@ viewHotel hotel =
 
         Nothing ->
             text ""
+
+
+viewDealsPages : Deals -> DealsPages -> Html Msg
+viewDealsPages deals page =
+    case page of
+        RemoteData.Failure err ->
+            text ("Error: " ++ toString err)
+
+        RemoteData.Success hotelsIds ->
+            div [] []
+
+        _ ->
+            text "Loading."

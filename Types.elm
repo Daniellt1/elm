@@ -4,9 +4,16 @@ import Dict
 import RemoteData
 
 
+-- Msg union type
+
+
 type Msg
-    = ProvidersUrlsFetched (RemoteData.WebData (List ProviderUrl))
+    = InitDataFetched (RemoteData.WebData InitData)
     | ProviderDataFetched String String (RemoteData.WebData ProviderData)
+
+
+
+-- Model type
 
 
 type alias Model =
@@ -14,8 +21,70 @@ type alias Model =
     , deals : Deals
     , hotels : Hotels
     , hotelsPages : HotelsPages
-    , providers : Maybe (Dict.Dict String Provider)
+    , providers : Providers
     }
+
+
+
+-- Init data related types
+
+
+type alias InitData =
+    { urls : Maybe ProvidersUrls
+    , offers : Maybe Offers
+    }
+
+
+
+-- Offers related types
+
+
+type alias Offers =
+    { hotels : Hotels
+    , deals : Deals
+    }
+
+
+
+-- Provider urls related types and constructors
+
+
+type alias ProvidersUrls =
+    List ProviderUrl
+
+
+type alias ProviderUrl =
+    ( String, String )
+
+
+createProviderUrl : String -> String -> ProviderUrl
+createProviderUrl name url =
+    ( name, url )
+
+
+
+-- Provider related types
+
+
+type alias Providers =
+    Maybe (Dict.Dict String Provider)
+
+
+type alias Provider =
+    { name : String
+    , url : String
+    , data : RemoteData.WebData ProviderData
+    }
+
+
+type alias ProviderData =
+    { hotels : Hotels
+    , deals : Deals
+    }
+
+
+
+-- Hotel pages related types
 
 
 type alias HotelsPages =
@@ -26,25 +95,8 @@ type alias HotelPage =
     RemoteData.WebData (List HotelId)
 
 
-type alias ProviderUrl =
-    ( String, String )
 
-
-type alias ProvidersUrls =
-    List ProviderUrl
-
-
-type alias ProviderData =
-    { hotels : Hotels
-    , deals : Deals
-    }
-
-
-type alias Provider =
-    { name : String
-    , url : String
-    , data : RemoteData.WebData ProviderData
-    }
+-- Hotels related types
 
 
 type alias Hotels =
@@ -54,7 +106,7 @@ type alias Hotels =
 type alias Hotel =
     { accommodationId : HotelId
     , accommodationName : String
-    , deals : Deals
+    , dealsPages : DealsPages
     }
 
 
@@ -62,15 +114,23 @@ type alias HotelId =
     String
 
 
+
+-- Deals pages related types
+
+
 type alias DealsPages =
     Dict.Dict Int DealPage
 
 
 type alias DealPage =
-    List DealId
+    RemoteData.WebData (List DealId)
 
 
-type alias Deals =
+
+-- Deals related types
+
+
+type alias D =
     Dict.Dict String Deal
 
 

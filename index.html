@@ -14117,11 +14117,19 @@ var _krisajenkins$remotedata$RemoteData$update = F2(
 				};
 		}
 	});
+var _user$project$Types$createProviderUrl = F2(
+	function (name, url) {
+		return {ctor: '_Tuple2', _0: name, _1: url};
+	});
 var _user$project$Types$Model = F5(
 	function (a, b, c, d, e) {
 		return {currentPage: a, deals: b, hotels: c, hotelsPages: d, providers: e};
 	});
-var _user$project$Types$ProviderData = F2(
+var _user$project$Types$InitData = F2(
+	function (a, b) {
+		return {urls: a, offers: b};
+	});
+var _user$project$Types$Offers = F2(
 	function (a, b) {
 		return {hotels: a, deals: b};
 	});
@@ -14129,9 +14137,13 @@ var _user$project$Types$Provider = F3(
 	function (a, b, c) {
 		return {name: a, url: b, data: c};
 	});
+var _user$project$Types$ProviderData = F2(
+	function (a, b) {
+		return {hotels: a, deals: b};
+	});
 var _user$project$Types$Hotel = F3(
 	function (a, b, c) {
-		return {accommodationId: a, accommodationName: b, deals: c};
+		return {accommodationId: a, accommodationName: b, dealsPages: c};
 	});
 var _user$project$Types$Deal = F2(
 	function (a, b) {
@@ -14141,8 +14153,8 @@ var _user$project$Types$ProviderDataFetched = F3(
 	function (a, b, c) {
 		return {ctor: 'ProviderDataFetched', _0: a, _1: b, _2: c};
 	});
-var _user$project$Types$ProvidersUrlsFetched = function (a) {
-	return {ctor: 'ProvidersUrlsFetched', _0: a};
+var _user$project$Types$InitDataFetched = function (a) {
+	return {ctor: 'InitDataFetched', _0: a};
 };
 var _user$project$Helpers$decodeDeal = A3(
 	_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
@@ -14160,29 +14172,39 @@ var _user$project$Helpers$decodeIdDealTuple = A2(
 	},
 	_user$project$Helpers$decodeDeal);
 var _user$project$Helpers$decodeDeals = A2(
-	_elm_lang$core$Json_Decode$map,
-	function (l) {
-		return _elm_lang$core$Dict$fromList(l);
-	},
-	_elm_lang$core$Json_Decode$list(_user$project$Helpers$decodeIdDealTuple));
+	_elm_lang$core$Json_Decode$field,
+	'deals',
+	A2(
+		_elm_lang$core$Json_Decode$map,
+		function (l) {
+			return _elm_lang$core$Dict$fromList(l);
+		},
+		_elm_lang$core$Json_Decode$list(_user$project$Helpers$decodeIdDealTuple)));
 var _user$project$Helpers$decodeHotel = function (deals) {
 	var accommodationIdDecoder = A2(_elm_lang$core$Json_Decode$field, 'accommodationId', _elm_lang$core$Json_Decode$string);
 	var dealsDecoder = A2(
 		_elm_lang$core$Json_Decode$andThen,
 		function (accommodationId) {
 			return _elm_lang$core$Json_Decode$succeed(
-				A2(
-					_elm_lang$core$Dict$filter,
-					F2(
-						function (_p0, deal) {
-							return _elm_lang$core$Native_Utils.eq(deal.hotel, accommodationId);
-						}),
-					deals));
+				_elm_lang$core$Dict$keys(
+					A2(
+						_elm_lang$core$Dict$filter,
+						F2(
+							function (_p0, deal) {
+								return _elm_lang$core$Native_Utils.eq(deal.hotel, accommodationId);
+							}),
+						deals)));
 		},
 		accommodationIdDecoder);
+	var dealsPagesDecoder = A2(
+		_elm_lang$core$Json_Decode$map,
+		function (deals) {
+			return A2(_elm_lang$core$Dict$singleton, 1, deals);
+		},
+		dealsDecoder);
 	return A2(
 		_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$custom,
-		dealsDecoder,
+		dealsPagesDecoder,
 		A3(
 			_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$required,
 			'accommodationName',
@@ -14200,55 +14222,83 @@ var _user$project$Helpers$decodeIdHotelTuple = function (deals) {
 		},
 		_user$project$Helpers$decodeHotel(deals));
 };
-var _user$project$Helpers$decodeHotels = function (deals) {
-	return A2(
-		_elm_lang$core$Json_Decode$map,
-		function (l) {
-			return _elm_lang$core$Dict$fromList(l);
-		},
-		_elm_lang$core$Json_Decode$list(
-			_user$project$Helpers$decodeIdHotelTuple(deals)));
-};
-var _user$project$Helpers$decodeProviderData = function () {
-	var dealsDecoder = A2(_elm_lang$core$Json_Decode$field, 'deals', _user$project$Helpers$decodeDeals);
-	var hotelsDecoder = A2(
-		_elm_lang$core$Json_Decode$andThen,
-		function (deals) {
-			return A2(
-				_elm_lang$core$Json_Decode$field,
-				'hotels',
-				_user$project$Helpers$decodeHotels(deals));
-		},
-		dealsDecoder);
-	return A2(
+var _user$project$Helpers$decodeHotels = A2(
+	_elm_lang$core$Json_Decode$andThen,
+	function (deals) {
+		return A2(
+			_elm_lang$core$Json_Decode$field,
+			'hotels',
+			A2(
+				_elm_lang$core$Json_Decode$map,
+				function (l) {
+					return _elm_lang$core$Dict$fromList(l);
+				},
+				_elm_lang$core$Json_Decode$list(
+					_user$project$Helpers$decodeIdHotelTuple(deals))));
+	},
+	_user$project$Helpers$decodeDeals);
+var _user$project$Helpers$decodeProviderData = A2(
+	_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$custom,
+	_user$project$Helpers$decodeDeals,
+	A2(
 		_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$custom,
-		dealsDecoder,
+		_user$project$Helpers$decodeHotels,
+		_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$decode(_user$project$Types$ProviderData)));
+var _user$project$Helpers$hotelPageFromHotels = function (hotels) {
+	return _krisajenkins$remotedata$RemoteData$Success(
+		_elm_lang$core$Dict$keys(hotels));
+};
+var _user$project$Helpers$overideHotelPage = F3(
+	function (index, page, pages) {
+		return A3(
+			_elm_lang$core$Dict$update,
+			index,
+			function (_p1) {
+				return _elm_lang$core$Maybe$Just(page);
+			},
+			pages);
+	});
+var _user$project$Helpers$decodeOffers = A2(
+	_elm_lang$core$Json_Decode$field,
+	'offers',
+	A2(
+		_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$custom,
+		_user$project$Helpers$decodeDeals,
 		A2(
 			_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$custom,
-			hotelsDecoder,
-			_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$decode(_user$project$Types$ProviderData)));
-}();
-var _user$project$Helpers$fetchProviderData = function (_p1) {
-	var _p2 = _p1;
-	var _p3 = _p2._1;
-	return A2(
-		_elm_lang$core$Platform_Cmd$map,
-		A2(_user$project$Types$ProviderDataFetched, _p2._0, _p3),
-		_krisajenkins$remotedata$RemoteData$sendRequest(
-			A2(
-				_elm_lang$http$Http$get,
-				A2(_elm_lang$core$Basics_ops['++'], 'http://localhost:3000/offer-broker-prefix', _p3),
-				_user$project$Helpers$decodeProviderData)));
-};
+			_user$project$Helpers$decodeHotels,
+			_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$decode(_user$project$Types$Offers))));
 var _user$project$Helpers$decodeProvidersUrls = A2(
 	_elm_lang$core$Json_Decode$field,
 	'urls',
 	_elm_lang$core$Json_Decode$keyValuePairs(_elm_lang$core$Json_Decode$string));
-var _user$project$Helpers$fetchProvidersUrls = A2(
+var _user$project$Helpers$decodeInitData = A2(
+	_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$custom,
+	_elm_lang$core$Json_Decode$maybe(_user$project$Helpers$decodeOffers),
+	A2(
+		_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$custom,
+		_elm_lang$core$Json_Decode$maybe(_user$project$Helpers$decodeProvidersUrls),
+		_NoRedInk$elm_decode_pipeline$Json_Decode_Pipeline$decode(_user$project$Types$InitData)));
+var _user$project$Helpers$fetchProviderData = function (_p2) {
+	var _p3 = _p2;
+	var _p4 = _p3._1;
+	return A2(
+		_elm_lang$core$Platform_Cmd$map,
+		A2(_user$project$Types$ProviderDataFetched, _p3._0, _p4),
+		_krisajenkins$remotedata$RemoteData$sendRequest(
+			A2(
+				_elm_lang$http$Http$get,
+				A2(_elm_lang$core$Basics_ops['++'], 'http://localhost:3000/offer-broker-prefix', _p4),
+				_user$project$Helpers$decodeProviderData)));
+};
+var _user$project$Helpers$fetchProvidersData = function (providersUrls) {
+	return A2(_elm_lang$core$List$map, _user$project$Helpers$fetchProviderData, providersUrls);
+};
+var _user$project$Helpers$fetchInitData = A2(
 	_elm_lang$core$Platform_Cmd$map,
-	_user$project$Types$ProvidersUrlsFetched,
+	_user$project$Types$InitDataFetched,
 	_krisajenkins$remotedata$RemoteData$sendRequest(
-		A2(_elm_lang$http$Http$get, 'http://localhost:3000/json/holiday-search/broker/main/offers?sourceID=15&itemsPerPage=20&dealsPerHotel=4&minDate=2017-02-18&searchType=sun&maxPrice=100&sgRegion=38366&page=1&maxDate=2017-02-24&minPrice=10&rating=4%2C2%2C3', _user$project$Helpers$decodeProvidersUrls)));
+		A2(_elm_lang$http$Http$get, 'http://localhost:3000/json/holiday-search/broker/main/offers?sourceID=15&itemsPerPage=20&dealsPerHotel=4&minDate=2017-02-18&searchType=sun&maxPrice=100&sgRegion=38366&page=1&maxDate=2017-02-24&minPrice=10&rating=4%2C2%2C3', _user$project$Helpers$decodeInitData)));
 var _user$project$Helpers$mergeHotels = F2(
 	function (old, $new) {
 		return A2(_elm_lang$core$List$append, old, $new);
@@ -14256,8 +14306,8 @@ var _user$project$Helpers$mergeHotels = F2(
 var _user$project$Helpers$updateHotels = F2(
 	function (old, $new) {
 		var mappedOld = function () {
-			var _p4 = old;
-			if (_p4.ctor === 'Loading') {
+			var _p5 = old;
+			if (_p5.ctor === 'Loading') {
 				return _krisajenkins$remotedata$RemoteData$succeed(
 					{ctor: '[]'});
 			} else {
@@ -14267,61 +14317,66 @@ var _user$project$Helpers$updateHotels = F2(
 		return A3(_krisajenkins$remotedata$RemoteData$map2, _user$project$Helpers$mergeHotels, mappedOld, $new);
 	});
 var _user$project$Helpers$dealsFromProviderDataResponse = function (providerDataResponse) {
-	var _p5 = providerDataResponse;
-	if (_p5.ctor === 'Success') {
-		return _p5._0.deals;
+	var _p6 = providerDataResponse;
+	if (_p6.ctor === 'Success') {
+		return _p6._0.deals;
 	} else {
 		return _elm_lang$core$Dict$empty;
 	}
 };
 var _user$project$Helpers$hotelsFromProviderDataResponse = function (providerDataResponse) {
-	var _p6 = providerDataResponse;
-	if (_p6.ctor === 'Success') {
-		return _p6._0.hotels;
+	var _p7 = providerDataResponse;
+	if (_p7.ctor === 'Success') {
+		return _p7._0.hotels;
 	} else {
 		return _elm_lang$core$Dict$empty;
 	}
 };
-var _user$project$Helpers$pageFromProviderDataResponse = function (providerDataResponse) {
-	var _p7 = providerDataResponse;
-	switch (_p7.ctor) {
+var _user$project$Helpers$hotelPageFromProviderDataResponse = function (providerDataResponse) {
+	var _p8 = providerDataResponse;
+	switch (_p8.ctor) {
 		case 'Success':
 			return _krisajenkins$remotedata$RemoteData$succeed(
-				_elm_lang$core$Dict$keys(_p7._0.hotels));
+				_elm_lang$core$Dict$keys(_p8._0.hotels));
 		case 'Failure':
-			return _krisajenkins$remotedata$RemoteData$Failure(_p7._0);
+			return _krisajenkins$remotedata$RemoteData$Failure(_p8._0);
 		default:
 			return _krisajenkins$remotedata$RemoteData$succeed(
 				{ctor: '[]'});
 	}
 };
-var _user$project$Helpers$nameProviderTuple = function (_p8) {
-	var _p9 = _p8;
-	var _p10 = _p9._0;
+var _user$project$Helpers$nameProviderTuple = function (_p9) {
+	var _p10 = _p9;
+	var _p11 = _p10._0;
 	return {
 		ctor: '_Tuple2',
-		_0: _p10,
-		_1: A3(_user$project$Types$Provider, _p10, _p9._1, _krisajenkins$remotedata$RemoteData$Loading)
+		_0: _p11,
+		_1: A3(_user$project$Types$Provider, _p11, _p10._1, _krisajenkins$remotedata$RemoteData$Loading)
 	};
+};
+var _user$project$Helpers$mapProvidersUrlsToProviders = function (urls) {
+	return _elm_lang$core$Maybe$Just(
+		_elm_lang$core$Dict$fromList(
+			A2(_elm_lang$core$List$map, _user$project$Helpers$nameProviderTuple, urls)));
 };
 var _user$project$Helpers$updateProvider = F3(
 	function (name, provider, providers) {
-		var _p11 = providers;
-		if (_p11.ctor === 'Just') {
+		var _p12 = providers;
+		if (_p12.ctor === 'Just') {
 			return _elm_lang$core$Maybe$Just(
 				A3(
 					_elm_lang$core$Dict$update,
 					name,
-					function (_p12) {
+					function (_p13) {
 						return _elm_lang$core$Maybe$Just(provider);
 					},
-					_p11._0));
+					_p12._0));
 		} else {
 			return providers;
 		}
 	});
-var _user$project$Helpers$updatePage = F3(
-	function (index, page, pages) {
+var _user$project$Helpers$mergeFirstPage = F2(
+	function (oldPage, newPage) {
 		var mergePages = F2(
 			function (old, $new) {
 				return A3(
@@ -14334,77 +14389,122 @@ var _user$project$Helpers$updatePage = F3(
 					old,
 					$new);
 			});
-		var updatePageValue = F2(
-			function (newPage, maybeOldPage) {
-				var _p13 = maybeOldPage;
-				if (_p13.ctor === 'Just') {
-					var _p15 = _p13._0;
-					var _p14 = _p15;
-					if (_p14.ctor === 'Success') {
-						return _krisajenkins$remotedata$RemoteData$isSuccess(newPage) ? _elm_lang$core$Maybe$Just(
-							A2(mergePages, _p15, newPage)) : _elm_lang$core$Maybe$Just(_p15);
-					} else {
-						return _elm_lang$core$Maybe$Just(newPage);
-					}
-				} else {
-					return _elm_lang$core$Maybe$Just(newPage);
-				}
-			});
-		return A3(
-			_elm_lang$core$Dict$update,
-			index,
-			updatePageValue(page),
-			pages);
+		var _p14 = oldPage;
+		switch (_p14.ctor) {
+			case 'Loading':
+				return _krisajenkins$remotedata$RemoteData$isSuccess(newPage) ? newPage : oldPage;
+			case 'Success':
+				return _krisajenkins$remotedata$RemoteData$isSuccess(newPage) ? A2(mergePages, oldPage, newPage) : oldPage;
+			default:
+				return newPage;
+		}
 	});
 var _user$project$State$update = F2(
 	function (msg, model) {
 		var _p0 = msg;
-		if (_p0.ctor === 'ProvidersUrlsFetched') {
-			var _p5 = _p0._0;
-			var currentPage = function () {
-				var _p1 = _p5;
-				if (_p1.ctor === 'Failure') {
-					return _krisajenkins$remotedata$RemoteData$Failure(_p1._0);
-				} else {
-					return _krisajenkins$remotedata$RemoteData$Loading;
-				}
-			}();
-			var providers = function () {
-				var _p2 = _p5;
-				if (_p2.ctor === 'Success') {
-					return _elm_lang$core$Maybe$Just(
-						_elm_lang$core$Dict$fromList(
-							A2(_elm_lang$core$List$map, _user$project$Helpers$nameProviderTuple, _p2._0)));
+		if (_p0.ctor === 'InitDataFetched') {
+			var urlsCase = function (data) {
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{
+							providers: _user$project$Helpers$mapProvidersUrlsToProviders(data),
+							hotelsPages: A3(_user$project$Helpers$overideHotelPage, 1, _krisajenkins$remotedata$RemoteData$Loading, model.hotelsPages)
+						}),
+					_user$project$Helpers$fetchProvidersData(data));
+			};
+			var offersCase = function (data) {
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{
+							deals: data.deals,
+							hotels: data.hotels,
+							hotelsPages: A3(
+								_user$project$Helpers$overideHotelPage,
+								1,
+								_user$project$Helpers$hotelPageFromHotels(data.hotels),
+								model.hotelsPages),
+							providers: _elm_lang$core$Maybe$Nothing
+						}),
+					{ctor: '[]'});
+			};
+			var errorCase = function (error) {
+				return A2(
+					_elm_lang$core$Platform_Cmd_ops['!'],
+					_elm_lang$core$Native_Utils.update(
+						model,
+						{
+							providers: _elm_lang$core$Maybe$Nothing,
+							hotelsPages: A3(
+								_user$project$Helpers$overideHotelPage,
+								1,
+								_krisajenkins$remotedata$RemoteData$Failure(error),
+								model.hotelsPages)
+						}),
+					{ctor: '[]'});
+			};
+			var _p1 = _p0._0;
+			switch (_p1.ctor) {
+				case 'Failure':
+					return errorCase(_p1._0);
+				case 'Success':
+					var _p2 = _p1._0.offers;
+					if (_p2.ctor === 'Just') {
+						return offersCase(_p2._0);
+					} else {
+						var _p3 = _p1._0.urls;
+						if (_p3.ctor === 'Just') {
+							return urlsCase(_p3._0);
+						} else {
+							return errorCase(_elm_lang$http$Http$Timeout);
+						}
+					}
+				default:
+					return A2(
+						_elm_lang$core$Platform_Cmd_ops['!'],
+						model,
+						{ctor: '[]'});
+			}
+		} else {
+			var _p9 = _p0._2;
+			var _p8 = _p0._0;
+			var newPage = _user$project$Helpers$hotelPageFromProviderDataResponse(_p9);
+			var updatedProviders = A3(
+				_user$project$Helpers$updateProvider,
+				_p8,
+				A3(_user$project$Types$Provider, _p8, _p0._1, _p9),
+				model.providers);
+			var hasAllProvidersBeenLoaded = _elm_lang$core$Dict$isEmpty(
+				A2(
+					_elm_lang$core$Dict$filter,
+					F2(
+						function (_p4, provider) {
+							return _krisajenkins$remotedata$RemoteData$isLoading(provider.data);
+						}),
+					A2(_elm_lang$core$Maybe$withDefault, _elm_lang$core$Dict$empty, updatedProviders)));
+			var updatePage = function (maybeOldPage) {
+				var _p5 = maybeOldPage;
+				if (_p5.ctor === 'Just') {
+					var _p7 = _p5._0;
+					if (hasAllProvidersBeenLoaded) {
+						var _p6 = _p7;
+						if (_p6.ctor === 'Loading') {
+							return _elm_lang$core$Maybe$Just(
+								_krisajenkins$remotedata$RemoteData$Failure(_elm_lang$http$Http$NetworkError));
+						} else {
+							return _elm_lang$core$Maybe$Just(_p7);
+						}
+					} else {
+						return _elm_lang$core$Maybe$Just(
+							A2(_user$project$Helpers$mergeFirstPage, _p7, newPage));
+					}
 				} else {
 					return _elm_lang$core$Maybe$Nothing;
 				}
-			}();
-			var cmds = function () {
-				var _p3 = _p5;
-				if (_p3.ctor === 'Success') {
-					return A2(_elm_lang$core$List$map, _user$project$Helpers$fetchProviderData, _p3._0);
-				} else {
-					return {ctor: '[]'};
-				}
-			}();
-			return A2(
-				_elm_lang$core$Platform_Cmd_ops['!'],
-				_elm_lang$core$Native_Utils.update(
-					model,
-					{
-						providers: providers,
-						hotelsPages: A3(
-							_elm_lang$core$Dict$update,
-							model.currentPage,
-							function (_p4) {
-								return _elm_lang$core$Maybe$Just(currentPage);
-							},
-							model.hotelsPages)
-					}),
-				cmds);
-		} else {
-			var _p7 = _p0._2;
-			var _p6 = _p0._0;
+			};
 			return A2(
 				_elm_lang$core$Platform_Cmd_ops['!'],
 				_elm_lang$core$Native_Utils.update(
@@ -14412,22 +14512,14 @@ var _user$project$State$update = F2(
 					{
 						deals: A2(
 							_elm_lang$core$Dict$union,
-							_user$project$Helpers$dealsFromProviderDataResponse(_p7),
+							_user$project$Helpers$dealsFromProviderDataResponse(_p9),
 							model.deals),
 						hotels: A2(
 							_elm_lang$core$Dict$union,
-							_user$project$Helpers$hotelsFromProviderDataResponse(_p7),
+							_user$project$Helpers$hotelsFromProviderDataResponse(_p9),
 							model.hotels),
-						hotelsPages: A3(
-							_user$project$Helpers$updatePage,
-							model.currentPage,
-							_user$project$Helpers$pageFromProviderDataResponse(_p7),
-							model.hotelsPages),
-						providers: A3(
-							_user$project$Helpers$updateProvider,
-							_p6,
-							A3(_user$project$Types$Provider, _p6, _p0._1, _p7),
-							model.providers)
+						hotelsPages: A3(_elm_lang$core$Dict$update, 1, updatePage, model.hotelsPages),
+						providers: updatedProviders
 					}),
 				{ctor: '[]'});
 		}
@@ -14438,10 +14530,10 @@ var _user$project$State$init = {
 		currentPage: 1,
 		deals: _elm_lang$core$Dict$empty,
 		hotels: _elm_lang$core$Dict$empty,
-		hotelsPages: A2(_elm_lang$core$Dict$singleton, 1, _krisajenkins$remotedata$RemoteData$NotAsked),
+		hotelsPages: A2(_elm_lang$core$Dict$singleton, 1, _krisajenkins$remotedata$RemoteData$Loading),
 		providers: _elm_lang$core$Maybe$Just(_elm_lang$core$Dict$empty)
 	},
-	_1: _user$project$Helpers$fetchProvidersUrls
+	_1: _user$project$Helpers$fetchInitData
 };
 var _user$project$Subscriptions$subscriptions = function (model) {
 	return _elm_lang$core$Platform_Sub$none;
@@ -14503,10 +14595,10 @@ var _user$project$View$viewStatusBar = function (providers) {
 	var filterFetchedProviders = F2(
 		function (_p2, provider) {
 			var _p3 = provider.data;
-			if (_p3.ctor === 'Success') {
-				return true;
-			} else {
+			if (_p3.ctor === 'Loading') {
 				return false;
+			} else {
+				return true;
 			}
 		});
 	var fetchedProvidersSize = function (providers) {
@@ -14574,7 +14666,7 @@ var _user$project$Main$main = _elm_lang$html$Html$program(
 var Elm = {};
 Elm['Main'] = Elm['Main'] || {};
 if (typeof _user$project$Main$main !== 'undefined') {
-    _user$project$Main$main(Elm['Main'], 'Main', {"types":{"unions":{"Dict.LeafColor":{"args":[],"tags":{"LBBlack":[],"LBlack":[]}},"Dict.Dict":{"args":["k","v"],"tags":{"RBNode_elm_builtin":["Dict.NColor","k","v","Dict.Dict k v","Dict.Dict k v"],"RBEmpty_elm_builtin":["Dict.LeafColor"]}},"RemoteData.RemoteData":{"args":["e","a"],"tags":{"NotAsked":[],"Success":["a"],"Loading":[],"Failure":["e"]}},"Types.Msg":{"args":[],"tags":{"ProvidersUrlsFetched":["RemoteData.WebData (List Types.ProviderUrl)"],"ProviderDataFetched":["String","String","RemoteData.WebData Types.ProviderData"]}},"Dict.NColor":{"args":[],"tags":{"BBlack":[],"Red":[],"NBlack":[],"Black":[]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String"],"NetworkError":[],"Timeout":[],"BadStatus":["Http.Response String"],"BadPayload":["String","Http.Response String"]}}},"aliases":{"Types.HotelId":{"args":[],"type":"String"},"RemoteData.WebData":{"args":["a"],"type":"RemoteData.RemoteData Http.Error a"},"Http.Response":{"args":["body"],"type":"{ url : String , status : { code : Int, message : String } , headers : Dict.Dict String String , body : body }"},"Types.ProviderData":{"args":[],"type":"{ hotels : Types.Hotels, deals : Types.Deals }"},"Types.Hotels":{"args":[],"type":"Dict.Dict Types.HotelId Types.Hotel"},"Types.ProviderUrl":{"args":[],"type":"( String, String )"},"Types.Hotel":{"args":[],"type":"{ accommodationId : Types.HotelId , accommodationName : String , deals : Types.Deals }"},"Types.Deals":{"args":[],"type":"Dict.Dict String Types.Deal"},"Types.Deal":{"args":[],"type":"{ hotel : Types.HotelId, offerId : String }"}},"message":"Types.Msg"},"versions":{"elm":"0.18.0"}});
+    _user$project$Main$main(Elm['Main'], 'Main', {"types":{"unions":{"Dict.LeafColor":{"args":[],"tags":{"LBBlack":[],"LBlack":[]}},"Dict.Dict":{"args":["k","v"],"tags":{"RBNode_elm_builtin":["Dict.NColor","k","v","Dict.Dict k v","Dict.Dict k v"],"RBEmpty_elm_builtin":["Dict.LeafColor"]}},"Maybe.Maybe":{"args":["a"],"tags":{"Just":["a"],"Nothing":[]}},"RemoteData.RemoteData":{"args":["e","a"],"tags":{"NotAsked":[],"Success":["a"],"Loading":[],"Failure":["e"]}},"Types.Msg":{"args":[],"tags":{"ProviderDataFetched":["String","String","RemoteData.WebData Types.ProviderData"],"InitDataFetched":["RemoteData.WebData Types.InitData"]}},"Dict.NColor":{"args":[],"tags":{"BBlack":[],"Red":[],"NBlack":[],"Black":[]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String"],"NetworkError":[],"Timeout":[],"BadStatus":["Http.Response String"],"BadPayload":["String","Http.Response String"]}}},"aliases":{"Types.DealId":{"args":[],"type":"String"},"Types.ProvidersUrls":{"args":[],"type":"List Types.ProviderUrl"},"Types.InitData":{"args":[],"type":"{ urls : Maybe.Maybe Types.ProvidersUrls , offers : Maybe.Maybe Types.Offers }"},"Types.HotelId":{"args":[],"type":"String"},"RemoteData.WebData":{"args":["a"],"type":"RemoteData.RemoteData Http.Error a"},"Http.Response":{"args":["body"],"type":"{ url : String , status : { code : Int, message : String } , headers : Dict.Dict String String , body : body }"},"Types.Offers":{"args":[],"type":"{ hotels : Types.Hotels, deals : Types.Deals }"},"Types.ProviderData":{"args":[],"type":"{ hotels : Types.Hotels, deals : Types.Deals }"},"Types.Hotels":{"args":[],"type":"Dict.Dict Types.HotelId Types.Hotel"},"Types.ProviderUrl":{"args":[],"type":"( String, String )"},"Types.Hotel":{"args":[],"type":"{ accommodationId : Types.HotelId , accommodationName : String , dealsPages : Types.DealsPages }"},"Types.Deals":{"args":[],"type":"Dict.Dict String Types.Deal"},"Types.DealPage":{"args":[],"type":"List Types.DealId"},"Types.DealsPages":{"args":[],"type":"Dict.Dict Int Types.DealPage"},"Types.Deal":{"args":[],"type":"{ hotel : Types.HotelId, offerId : String }"}},"message":"Types.Msg"},"versions":{"elm":"0.18.0"}});
 }
 
 if (typeof define === "function" && define['amd'])
